@@ -1,0 +1,6 @@
+@TendersData.Api_HostAddress = http://localhost:5216
+
+GET {{TendersData.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
