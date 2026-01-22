@@ -39,20 +39,39 @@ public static class DependencyInjection
 
     private static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy(IServiceProvider serviceProvider)
     {
-        return HttpPolicyExtensions
+        var logger = serviceProvider.GetRequiredService<ILogger<ITendersDataRepository>>();
+        
+        var timeoutPolicy = Policy.TimeoutAsync<HttpResponseMessage>(
+            TimeSpan.FromSeconds(120),
+            TimeoutStrategy.Pessimistic,
+            onTimeoutAsync: (context, timespan, task) =>
+            {
+                logger.LogWarning("Request timeout po {Time}s", timespan.TotalSeconds);
+                return Task.CompletedTask;
+            });
+
+        var retryPolicy = HttpPolicyExtensions
             .HandleTransientHttpError()
             .Or<TimeoutRejectedException>()
+            .OrResult(msg => msg.StatusCode == System.Net.HttpStatusCode.GatewayTimeout ||
+                            msg.StatusCode == System.Net.HttpStatusCode.RequestTimeout ||
+                            msg.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
             .WaitAndRetryAsync(
                 retryCount: 3,
                 sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
                 onRetry: (outcome, timespan, retryAttempt, context) =>
                 {
-                    var logger = serviceProvider.GetRequiredService<ILogger<ITendersDataRepository>>();
-
-                    logger.LogWarning("Retry {Attempt} po {Time}s z powodu: {Reason}",
+                    var statusCode = outcome.Result?.StatusCode.ToString() ?? outcome.Exception?.GetType().Name ?? "Unknown";
+                    var requestUri = outcome.Result?.RequestMessage?.RequestUri?.ToString() ?? "Unknown";
+                    
+                    logger.LogWarning(
+                        "Retry attempt {RetryCount}/3 for {RequestUri}. Status: {StatusCode}. Waiting {Delay}s before retry.",
                         retryAttempt,
-                        timespan.TotalSeconds,
-                        outcome.Exception?.Message ?? outcome.Result.StatusCode.ToString());
+                        requestUri,
+                        statusCode,
+                        timespan.TotalSeconds);
                 });
+
+        return Policy.WrapAsync(timeoutPolicy, retryPolicy);
     }
 }

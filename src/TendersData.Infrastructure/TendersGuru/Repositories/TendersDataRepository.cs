@@ -38,8 +38,19 @@ public class TendersDataRepository(
                 var response = await httpClient.GetFromJsonAsync<TendersGuruResponse>($"tenders?page={page}", ct);
                 return response?.Data ?? [];
             }
-            catch
+            catch (HttpRequestException ex)
             {
+                logger.LogWarning("Failed to fetch page {Page} after retries: {Error}", page, ex.Message);
+                return Array.Empty<TendersGuruItem>();
+            }
+            catch (TaskCanceledException ex)
+            {
+                logger.LogWarning("Timeout for page {Page} after retries: {Error}", page, ex.Message);
+                return Array.Empty<TendersGuruItem>();
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Unexpected error fetching page {Page}", page);
                 return Array.Empty<TendersGuruItem>();
             }
             finally
