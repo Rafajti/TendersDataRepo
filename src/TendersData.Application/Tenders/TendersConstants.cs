@@ -1,4 +1,4 @@
-﻿namespace TendersData.Application.Tenders;
+namespace TendersData.Application.Tenders;
 
 public static class TendersConstants
 {

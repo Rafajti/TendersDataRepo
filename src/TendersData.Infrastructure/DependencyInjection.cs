@@ -6,6 +6,7 @@ using Polly.Extensions.Http;
 using Polly.Timeout;
 using TendersData.Application.Tenders.Repositories;
 using TendersData.Infrastructure.TendersGuru.Configuration;
+using TendersData.Infrastructure.TendersGuru.Constants;
 using TendersData.Infrastructure.TendersGuru.Mappers;
 using TendersData.Infrastructure.TendersGuru.Repositories;
 using TendersData.Infrastructure.TendersGuru.Services;
@@ -21,7 +22,7 @@ public static class DependencyInjection
         services.AddScoped<ITenderMapper, TenderMapper>();
         
         services.Configure<TendersGuruOptions>(
-            configuration.GetSection(TendersGuruOptions.SectionName));
+            configuration.GetSection(InfrastructureConstants.TendersGuru.SectionName));
         
         services.AddTendersClient(configuration);
 
@@ -34,7 +35,7 @@ public static class DependencyInjection
 
         services.AddHttpClient(nameof(TendersDataRepository), client =>
         {
-            var options = configuration.GetSection(TendersGuruOptions.SectionName).Get<TendersGuruOptions>() 
+            var options = configuration.GetSection(InfrastructureConstants.TendersGuru.SectionName).Get<TendersGuruOptions>() 
                 ?? new TendersGuruOptions();
 
             client.DefaultRequestHeaders.Add("Referer", "https://tenders.guru/api/pl");

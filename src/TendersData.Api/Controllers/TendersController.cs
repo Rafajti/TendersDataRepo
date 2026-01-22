@@ -12,11 +12,6 @@ public class TendersController(IMediator mediator) : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] GetFilteredTendersQuery query)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(ModelState);
-        }
-
         var result = await mediator.Send(query);
         return Ok(result);
     }

@@ -1,4 +1,5 @@
 using FluentAssertions;
+using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
@@ -114,20 +115,17 @@ public class TendersControllerTests
     }
 
     [Fact]
-    public async Task GetById_WithZeroId_ReturnsOkResult()
+    public async Task GetById_WithZeroId_ThrowsValidationException()
     {
         // Arrange
         var id = 0;
         _mediatorMock
             .Setup(m => m.Send(It.Is<GetTenderByIdQuery>(q => q.Id == id), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Tender?)null);
+            .ThrowsAsync(new FluentValidation.ValidationException("Validation failed"));
 
-        // Act
-        var result = await _controller.GetById(id);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.Should().BeOfType<OkObjectResult>();
+        // Act & Assert
+        await Assert.ThrowsAsync<FluentValidation.ValidationException>(
+            async () => await _controller.GetById(id));
 
         _mediatorMock.Verify(
             m => m.Send(It.Is<GetTenderByIdQuery>(q => q.Id == id), It.IsAny<CancellationToken>()),
@@ -135,20 +133,17 @@ public class TendersControllerTests
     }
 
     [Fact]
-    public async Task GetById_WithNegativeId_ReturnsOkResult()
+    public async Task GetById_WithNegativeId_ThrowsValidationException()
     {
         // Arrange
         var id = -1;
         _mediatorMock
             .Setup(m => m.Send(It.Is<GetTenderByIdQuery>(q => q.Id == id), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Tender?)null);
+            .ThrowsAsync(new FluentValidation.ValidationException("Validation failed"));
 
-        // Act
-        var result = await _controller.GetById(id);
-
-        // Assert
-        result.Should().NotBeNull();
-        result.Should().BeOfType<OkObjectResult>();
+        // Act & Assert
+        await Assert.ThrowsAsync<FluentValidation.ValidationException>(
+            async () => await _controller.GetById(id));
 
         _mediatorMock.Verify(
             m => m.Send(It.Is<GetTenderByIdQuery>(q => q.Id == id), It.IsAny<CancellationToken>()),

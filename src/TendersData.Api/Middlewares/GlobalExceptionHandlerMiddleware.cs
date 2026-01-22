@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Diagnostics;
+using FluentValidation;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
 namespace TendersData.Api.Middlewares;
@@ -12,9 +13,16 @@ public class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger, IHos
     {
         logger.LogError(exception, "An unhandled exception occurred: {Message}", exception.Message);
 
-        var (statusCode, title) = exception switch
+        var (statusCode, title, errors) = exception switch
         {
-            _ => (StatusCodes.Status500InternalServerError, "Unexpected server error.")
+            ValidationException validationException => (
+                StatusCodes.Status400BadRequest,
+                "Validation error.",
+                validationException.Errors.GroupBy(e => e.PropertyName)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g.Select(e => e.ErrorMessage).ToArray())),
+            _ => (StatusCodes.Status500InternalServerError, "Unexpected server error.", (Dictionary<string, string[]>?)null)
         };
 
         httpContext.Response.StatusCode = statusCode;
@@ -28,6 +36,11 @@ public class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger, IHos
         };
 
         problemDetails.Extensions.Add("traceId", httpContext.TraceIdentifier);
+
+        if (errors != null)
+        {
+            problemDetails.Extensions.Add("errors", errors);
+        }
 
         await httpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken);
 
