@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\TendersData.Application\TendersData.Application.csproj" />
+    <ProjectReference Include="..\TendersData.Infrastructure\TendersData.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

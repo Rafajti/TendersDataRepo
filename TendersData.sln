@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TendersData.Application", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TendersData.Application.Tests", "tests\TendersData.Application.Tests\TendersData.Application.Tests.csproj", "{5B0220AB-5874-489F-AD11-6A5321ED0D7D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TendersData.Infrastructure", "src\TendersData.Infrastructure\TendersData.Infrastructure.csproj", "{CFBE7DD3-AF60-441A-AF05-7DF2A87A1511}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -37,6 +39,10 @@ Global
 		{5B0220AB-5874-489F-AD11-6A5321ED0D7D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5B0220AB-5874-489F-AD11-6A5321ED0D7D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5B0220AB-5874-489F-AD11-6A5321ED0D7D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CFBE7DD3-AF60-441A-AF05-7DF2A87A1511}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CFBE7DD3-AF60-441A-AF05-7DF2A87A1511}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CFBE7DD3-AF60-441A-AF05-7DF2A87A1511}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CFBE7DD3-AF60-441A-AF05-7DF2A87A1511}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -46,6 +52,7 @@ Global
 		{A988EECF-5776-49B8-A36A-AEB0E9EE8D2C} = {291D4163-A84D-4DD1-973E-763C4164FF7D}
 		{39EF1AEA-D8A4-420A-A335-AF28A86E0288} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{5B0220AB-5874-489F-AD11-6A5321ED0D7D} = {291D4163-A84D-4DD1-973E-763C4164FF7D}
+		{CFBE7DD3-AF60-441A-AF05-7DF2A87A1511} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {D786938A-059D-4A05-B10D-8314606A298D}
