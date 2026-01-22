@@ -31,6 +31,7 @@ public static class DependencyInjection
             client.DefaultRequestHeaders.Add("Referer", "https://tenders.guru/api/pl");
             client.BaseAddress = new Uri(baseUrl ?? "https://tenders.guru/api/pl/");
             client.DefaultRequestHeaders.Add("Accept", "application/json");
+            client.Timeout = TimeSpan.FromSeconds(360);
         })
         .AddPolicyHandler((serviceProvider, request) => GetRetryPolicy(serviceProvider));
 
@@ -40,19 +41,18 @@ public static class DependencyInjection
     private static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy(IServiceProvider serviceProvider)
     {
         var logger = serviceProvider.GetRequiredService<ILogger<ITendersDataRepository>>();
-        
         var timeoutPolicy = Policy.TimeoutAsync<HttpResponseMessage>(
             TimeSpan.FromSeconds(120),
             TimeoutStrategy.Pessimistic,
             onTimeoutAsync: (context, timespan, task) =>
             {
-                logger.LogWarning("Request timeout po {Time}s", timespan.TotalSeconds);
+                logger.LogWarning("Request timeout after {Time}s - will retry", timespan.TotalSeconds);
                 return Task.CompletedTask;
             });
 
         var retryPolicy = HttpPolicyExtensions
             .HandleTransientHttpError()
-            .Or<TimeoutRejectedException>()
+            .Or<TimeoutRejectedException>() 
             .OrResult(msg => msg.StatusCode == System.Net.HttpStatusCode.GatewayTimeout ||
                             msg.StatusCode == System.Net.HttpStatusCode.RequestTimeout ||
                             msg.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
@@ -72,6 +72,6 @@ public static class DependencyInjection
                         timespan.TotalSeconds);
                 });
 
-        return Policy.WrapAsync(timeoutPolicy, retryPolicy);
+        return Policy.WrapAsync(retryPolicy, timeoutPolicy);
     }
 }
