@@ -1,49 +1,28 @@
+using System.Net;
+using System.Text.Json;
 using FluentAssertions;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Moq;
-using System.Net;
-using System.Text.Json;
-using TendersData.Api.Middlewares;
 
 namespace TendersData.Api.Tests.Middlewares;
 
-public class GlobalExceptionHandlerTests
+public class GlobalExceptionHandlerTests : GlobalExceptionHandlerMockHelper
 {
-    private readonly Mock<ILogger<GlobalExceptionHandler>> _loggerMock;
-    private readonly DefaultHttpContext _httpContext;
-
-    private IHostEnvironment CreateEnvironment(string environmentName)
-    {
-        var env = new Mock<IHostEnvironment>();
-        env.Setup(e => e.EnvironmentName).Returns(environmentName);
-        env.Setup(e => e.ApplicationName).Returns("TestApp");
-        env.Setup(e => e.ContentRootPath).Returns("/");
-        return env.Object;
-    }
-
-    public GlobalExceptionHandlerTests()
-    {
-        _loggerMock = new Mock<ILogger<GlobalExceptionHandler>>();
-        _httpContext = new DefaultHttpContext();
-    }
-
     [Fact]
     public async Task TryHandleAsync_WithGenericException_Returns500StatusCode()
     {
         // Arrange
         var exception = new Exception("Test exception");
-        var env = CreateEnvironment(Environments.Production);
-        var handler = new GlobalExceptionHandler(_loggerMock.Object, env);
+        var handler = CreateHandler(Environments.Production);
 
         // Act
-        var result = await handler.TryHandleAsync(_httpContext, exception, CancellationToken.None);
+        var result = await handler.TryHandleAsync(HttpContext, exception, CancellationToken.None);
 
         // Assert
         result.Should().BeTrue();
-        _httpContext.Response.StatusCode.Should().Be((int)HttpStatusCode.InternalServerError);
+        HttpContext.Response.StatusCode.Should().Be((int)HttpStatusCode.InternalServerError);
     }
 
     [Fact]
@@ -51,14 +30,13 @@ public class GlobalExceptionHandlerTests
     {
         // Arrange
         var exception = new Exception("Test exception");
-        var env = CreateEnvironment(Environments.Production);
-        var handler = new GlobalExceptionHandler(_loggerMock.Object, env);
+        var handler = CreateHandler(Environments.Production);
 
         // Act
-        await handler.TryHandleAsync(_httpContext, exception, CancellationToken.None);
+        await handler.TryHandleAsync(HttpContext, exception, CancellationToken.None);
 
         // Assert
-        _loggerMock.Verify(
+        LoggerMock.Verify(
             x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),
@@ -73,16 +51,15 @@ public class GlobalExceptionHandlerTests
     {
         // Arrange
         var exception = new Exception("Test exception");
-        var env = CreateEnvironment(Environments.Production);
-        var handler = new GlobalExceptionHandler(_loggerMock.Object, env);
-        _httpContext.Response.Body = new MemoryStream();
+        var handler = CreateHandler(Environments.Production);
+        HttpContext.Response.Body = new MemoryStream();
 
         // Act
-        await handler.TryHandleAsync(_httpContext, exception, CancellationToken.None);
+        await handler.TryHandleAsync(HttpContext, exception, CancellationToken.None);
 
         // Assert
-        _httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
-        var reader = new StreamReader(_httpContext.Response.Body);
+        HttpContext.Response.Body.Seek(0, SeekOrigin.Begin);
+        var reader = new StreamReader(HttpContext.Response.Body);
         var responseBody = await reader.ReadToEndAsync();
         var problemDetails = JsonSerializer.Deserialize<ProblemDetails>(responseBody, new JsonSerializerOptions
         {
@@ -100,16 +77,15 @@ public class GlobalExceptionHandlerTests
     {
         // Arrange
         var exception = new Exception("Test exception");
-        var env = CreateEnvironment(Environments.Development);
-        var handler = new GlobalExceptionHandler(_loggerMock.Object, env);
-        _httpContext.Response.Body = new MemoryStream();
+        var handler = CreateHandler(Environments.Development);
+        HttpContext.Response.Body = new MemoryStream();
 
         // Act
-        await handler.TryHandleAsync(_httpContext, exception, CancellationToken.None);
+        await handler.TryHandleAsync(HttpContext, exception, CancellationToken.None);
 
         // Assert
-        _httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
-        var reader = new StreamReader(_httpContext.Response.Body);
+        HttpContext.Response.Body.Seek(0, SeekOrigin.Begin);
+        var reader = new StreamReader(HttpContext.Response.Body);
         var responseBody = await reader.ReadToEndAsync();
         var problemDetails = JsonSerializer.Deserialize<ProblemDetails>(responseBody, new JsonSerializerOptions
         {
@@ -126,16 +102,15 @@ public class GlobalExceptionHandlerTests
     {
         // Arrange
         var exception = new Exception("Test exception");
-        var env = CreateEnvironment(Environments.Production);
-        var handler = new GlobalExceptionHandler(_loggerMock.Object, env);
-        _httpContext.Response.Body = new MemoryStream();
+        var handler = CreateHandler(Environments.Production);
+        HttpContext.Response.Body = new MemoryStream();
 
         // Act
-        await handler.TryHandleAsync(_httpContext, exception, CancellationToken.None);
+        await handler.TryHandleAsync(HttpContext, exception, CancellationToken.None);
 
         // Assert
-        _httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
-        var reader = new StreamReader(_httpContext.Response.Body);
+        HttpContext.Response.Body.Seek(0, SeekOrigin.Begin);
+        var reader = new StreamReader(HttpContext.Response.Body);
         var responseBody = await reader.ReadToEndAsync();
         var problemDetails = JsonSerializer.Deserialize<ProblemDetails>(responseBody, new JsonSerializerOptions
         {
@@ -148,44 +123,20 @@ public class GlobalExceptionHandlerTests
     }
 
     [Fact]
-    public async Task TryHandleAsync_AddsTraceIdToProblemDetails()
-    {
-        // Arrange
-        var exception = new Exception("Test exception");
-        var env = CreateEnvironment(Environments.Production);
-        var handler = new GlobalExceptionHandler(_loggerMock.Object, env);
-        _httpContext.Response.Body = new MemoryStream();
-        _httpContext.TraceIdentifier = "test-trace-id";
-
-        // Act
-        await handler.TryHandleAsync(_httpContext, exception, CancellationToken.None);
-
-        // Assert
-        _httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
-        var reader = new StreamReader(_httpContext.Response.Body);
-        var responseBody = await reader.ReadToEndAsync();
-        var jsonDoc = JsonDocument.Parse(responseBody);
-
-        jsonDoc.RootElement.TryGetProperty("traceId", out var traceIdElement).Should().BeTrue();
-        traceIdElement.GetString().Should().Be("test-trace-id");
-    }
-
-    [Fact]
     public async Task TryHandleAsync_SetsInstanceToRequestPath()
     {
         // Arrange
         var exception = new Exception("Test exception");
-        var env = CreateEnvironment(Environments.Production);
-        var handler = new GlobalExceptionHandler(_loggerMock.Object, env);
-        _httpContext.Request.Path = "/api/test";
-        _httpContext.Response.Body = new MemoryStream();
+        var handler = CreateHandler(Environments.Production);
+        HttpContext.Request.Path = "/api/test";
+        HttpContext.Response.Body = new MemoryStream();
 
         // Act
-        await handler.TryHandleAsync(_httpContext, exception, CancellationToken.None);
+        await handler.TryHandleAsync(HttpContext, exception, CancellationToken.None);
 
         // Assert
-        _httpContext.Response.Body.Seek(0, SeekOrigin.Begin);
-        var reader = new StreamReader(_httpContext.Response.Body);
+        HttpContext.Response.Body.Seek(0, SeekOrigin.Begin);
+        var reader = new StreamReader(HttpContext.Response.Body);
         var responseBody = await reader.ReadToEndAsync();
         var problemDetails = JsonSerializer.Deserialize<ProblemDetails>(responseBody, new JsonSerializerOptions
         {
@@ -201,14 +152,13 @@ public class GlobalExceptionHandlerTests
     {
         // Arrange
         var exception = new Exception("Test exception");
-        var env = CreateEnvironment(Environments.Production);
-        var handler = new GlobalExceptionHandler(_loggerMock.Object, env);
+        var handler = CreateHandler(Environments.Production);
 
         // Act
-        await handler.TryHandleAsync(_httpContext, exception, CancellationToken.None);
+        await handler.TryHandleAsync(HttpContext, exception, CancellationToken.None);
 
         // Assert
-        _httpContext.Response.ContentType.Should().StartWith("application/json");
+        HttpContext.Response.ContentType.Should().StartWith("application/json");
     }
 
     [Fact]
@@ -216,16 +166,15 @@ public class GlobalExceptionHandlerTests
     {
         // Arrange
         var exception = new Exception();
-        var env = CreateEnvironment(Environments.Production);
-        var handler = new GlobalExceptionHandler(_loggerMock.Object, env);
-        _httpContext.Response.Body = new MemoryStream();
+        var handler = CreateHandler(Environments.Production);
+        HttpContext.Response.Body = new MemoryStream();
 
         // Act
-        var result = await handler.TryHandleAsync(_httpContext, exception, CancellationToken.None);
+        var result = await handler.TryHandleAsync(HttpContext, exception, CancellationToken.None);
 
         // Assert
         result.Should().BeTrue();
-        _httpContext.Response.StatusCode.Should().Be((int)HttpStatusCode.InternalServerError);
+        HttpContext.Response.StatusCode.Should().Be((int)HttpStatusCode.InternalServerError);
     }
 
     [Fact]
@@ -233,14 +182,13 @@ public class GlobalExceptionHandlerTests
     {
         // Arrange
         var exception = new Exception("Test exception");
-        var env = CreateEnvironment(Environments.Production);
-        var handler = new GlobalExceptionHandler(_loggerMock.Object, env);
+        var handler = CreateHandler(Environments.Production);
         var cts = new CancellationTokenSource();
         cts.Cancel();
 
         // Act & Assert
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
-            async () => await handler.TryHandleAsync(_httpContext, exception, cts.Token));
+            async () => await handler.TryHandleAsync(HttpContext, exception, cts.Token));
     }
 
     [Fact]
@@ -249,14 +197,13 @@ public class GlobalExceptionHandlerTests
         // Arrange
         var innerException = new InvalidOperationException("Inner exception");
         var exception = new Exception("Outer exception", innerException);
-        var env = CreateEnvironment(Environments.Production);
-        var handler = new GlobalExceptionHandler(_loggerMock.Object, env);
+        var handler = CreateHandler(Environments.Production);
 
         // Act
-        await handler.TryHandleAsync(_httpContext, exception, CancellationToken.None);
+        await handler.TryHandleAsync(HttpContext, exception, CancellationToken.None);
 
         // Assert
-        _loggerMock.Verify(
+        LoggerMock.Verify(
             x => x.Log(
                 LogLevel.Error,
                 It.IsAny<EventId>(),

@@ -1,59 +1,40 @@
 using FluentAssertions;
-using FluentValidation;
-using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
-using TendersData.Api.Controllers;
 using TendersData.Application.Tenders.Models;
 using TendersData.Application.Tenders.Queries.GetTenderById;
+using TendersData.Tests.Common.Builders;
 
 namespace TendersData.Api.Tests.Controllers;
 
-public class TendersControllerTests
+public class TendersControllerTests : TendersControllerMockHelper
 {
-    private readonly Mock<IMediator> _mediatorMock;
-    private readonly TendersController _controller;
-
-    public TendersControllerTests()
-    {
-        _mediatorMock = new Mock<IMediator>();
-        _controller = new TendersController(_mediatorMock.Object);
-    }
-
     [Fact]
     public async Task GetById_WithValidId_ReturnsOkResultWithTender()
     {
         // Arrange
         var id = 1;
-        var expectedTender = new Tender(
-            Id: id,
-            Date: DateTime.UtcNow,
-            Title: "Test Tender",
-            Description: "Test Description",
-            AmountEur: 1000.50m,
-            Suppliers: new List<Supplier>
-            {
-                new Supplier(1, "Supplier 1")
-            }
-        );
-
-        _mediatorMock
-            .Setup(m => m.Send(It.Is<GetTenderByIdQuery>(q => q.Id == id), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedTender);
+        var expectedTender = TenderBuilder.Default
+            .WithId(id)
+            .WithTitle("Test Tender")
+            .WithDescription("Test Description")
+            .WithAmountEur(1000.50m)
+            .WithSupplier(1, "Supplier 1")
+            .Build();
+        SetupGetById(id, expectedTender);
 
         // Act
-        var result = await _controller.GetById(id);
+        var result = await Controller.GetById(id);
 
         // Assert
         result.Should().NotBeNull();
         result.Should().BeOfType<OkObjectResult>();
-        var okResult = result as OkObjectResult;
-        okResult!.Value.Should().Be(expectedTender);
+        var okResult = (OkObjectResult)result;
+        okResult.Value.Should().Be(expectedTender);
         okResult.StatusCode.Should().Be(200);
-
-        _mediatorMock.Verify(
+        MediatorMock.Verify(
             m => m.Send(It.Is<GetTenderByIdQuery>(q => q.Id == id), It.IsAny<CancellationToken>()),
-            Times.Once);
+            Moq.Times.Once);
     }
 
     [Fact]
@@ -61,23 +42,20 @@ public class TendersControllerTests
     {
         // Arrange
         var id = 999;
-        _mediatorMock
-            .Setup(m => m.Send(It.Is<GetTenderByIdQuery>(q => q.Id == id), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Tender?)null);
+        SetupGetById(id, null);
 
         // Act
-        var result = await _controller.GetById(id);
+        var result = await Controller.GetById(id);
 
         // Assert
         result.Should().NotBeNull();
         result.Should().BeOfType<OkObjectResult>();
-        var okResult = result as OkObjectResult;
-        okResult!.Value.Should().BeNull();
+        var okResult = (OkObjectResult)result;
+        okResult.Value.Should().BeNull();
         okResult.StatusCode.Should().Be(200);
-
-        _mediatorMock.Verify(
+        MediatorMock.Verify(
             m => m.Send(It.Is<GetTenderByIdQuery>(q => q.Id == id), It.IsAny<CancellationToken>()),
-            Times.Once);
+            Moq.Times.Once);
     }
 
     [Theory]
@@ -87,31 +65,24 @@ public class TendersControllerTests
     public async Task GetById_WithDifferentIds_CallsMediatorWithCorrectQuery(int id)
     {
         // Arrange
-        var expectedTender = new Tender(
-            Id: id,
-            Date: DateTime.UtcNow,
-            Title: $"Tender {id}",
-            Description: "Description",
-            AmountEur: 500m,
-            Suppliers: new List<Supplier>()
-        );
-
-        _mediatorMock
-            .Setup(m => m.Send(It.Is<GetTenderByIdQuery>(q => q.Id == id), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedTender);
+        var expectedTender = TenderBuilder.Default
+            .WithId(id)
+            .WithTitle($"Tender {id}")
+            .WithAmountEur(500m)
+            .Build();
+        SetupGetById(id, expectedTender);
 
         // Act
-        var result = await _controller.GetById(id);
+        var result = await Controller.GetById(id);
 
         // Assert
         result.Should().NotBeNull();
         result.Should().BeOfType<OkObjectResult>();
-        var okResult = result as OkObjectResult;
-        okResult!.Value.Should().Be(expectedTender);
-
-        _mediatorMock.Verify(
+        var okResult = (OkObjectResult)result;
+        okResult.Value.Should().Be(expectedTender);
+        MediatorMock.Verify(
             m => m.Send(It.Is<GetTenderByIdQuery>(q => q.Id == id), It.IsAny<CancellationToken>()),
-            Times.Once);
+            Moq.Times.Once);
     }
 
     [Fact]
@@ -119,17 +90,16 @@ public class TendersControllerTests
     {
         // Arrange
         var id = 0;
-        _mediatorMock
-            .Setup(m => m.Send(It.Is<GetTenderByIdQuery>(q => q.Id == id), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new FluentValidation.ValidationException("Validation failed"));
+        SetupGetByIdThrows(id, new FluentValidation.ValidationException("Validation failed"));
 
-        // Act & Assert
-        await Assert.ThrowsAsync<FluentValidation.ValidationException>(
-            async () => await _controller.GetById(id));
+        // Act
+        var act = () => Controller.GetById(id);
 
-        _mediatorMock.Verify(
+        // Assert
+        await act.Should().ThrowAsync<FluentValidation.ValidationException>();
+        MediatorMock.Verify(
             m => m.Send(It.Is<GetTenderByIdQuery>(q => q.Id == id), It.IsAny<CancellationToken>()),
-            Times.Once);
+            Moq.Times.Once);
     }
 
     [Fact]
@@ -137,17 +107,16 @@ public class TendersControllerTests
     {
         // Arrange
         var id = -1;
-        _mediatorMock
-            .Setup(m => m.Send(It.Is<GetTenderByIdQuery>(q => q.Id == id), It.IsAny<CancellationToken>()))
-            .ThrowsAsync(new FluentValidation.ValidationException("Validation failed"));
+        SetupGetByIdThrows(id, new FluentValidation.ValidationException("Validation failed"));
 
-        // Act & Assert
-        await Assert.ThrowsAsync<FluentValidation.ValidationException>(
-            async () => await _controller.GetById(id));
+        // Act
+        var act = () => Controller.GetById(id);
 
-        _mediatorMock.Verify(
+        // Assert
+        await act.Should().ThrowAsync<FluentValidation.ValidationException>();
+        MediatorMock.Verify(
             m => m.Send(It.Is<GetTenderByIdQuery>(q => q.Id == id), It.IsAny<CancellationToken>()),
-            Times.Once);
+            Moq.Times.Once);
     }
 
     [Fact]
@@ -155,37 +124,29 @@ public class TendersControllerTests
     {
         // Arrange
         var id = 1;
-        var expectedTender = new Tender(
-            Id: id,
-            Date: DateTime.UtcNow,
-            Title: "Multi-Supplier Tender",
-            Description: "Description",
-            AmountEur: 5000m,
-            Suppliers: new List<Supplier>
-            {
-                new Supplier(1, "Supplier 1"),
-                new Supplier(2, "Supplier 2"),
-                new Supplier(3, "Supplier 3")
-            }
-        );
-
-        _mediatorMock
-            .Setup(m => m.Send(It.Is<GetTenderByIdQuery>(q => q.Id == id), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(expectedTender);
+        var expectedTender = TenderBuilder.Default
+            .WithId(id)
+            .WithTitle("Multi-Supplier Tender")
+            .WithAmountEur(5000m)
+            .WithSuppliers(
+                SupplierBuilder.Default.WithId(1).WithName("Supplier 1").Build(),
+                SupplierBuilder.Default.WithId(2).WithName("Supplier 2").Build(),
+                SupplierBuilder.Default.WithId(3).WithName("Supplier 3").Build())
+            .Build();
+        SetupGetById(id, expectedTender);
 
         // Act
-        var result = await _controller.GetById(id);
+        var result = await Controller.GetById(id);
 
         // Assert
         result.Should().NotBeNull();
         result.Should().BeOfType<OkObjectResult>();
-        var okResult = result as OkObjectResult;
-        var tender = okResult!.Value as Tender;
+        var okResult = (OkObjectResult)result;
+        var tender = okResult.Value as Tender;
         tender.Should().NotBeNull();
         tender!.Suppliers.Should().HaveCount(3);
-
-        _mediatorMock.Verify(
+        MediatorMock.Verify(
             m => m.Send(It.Is<GetTenderByIdQuery>(q => q.Id == id), It.IsAny<CancellationToken>()),
-            Times.Once);
+            Moq.Times.Once);
     }
 }

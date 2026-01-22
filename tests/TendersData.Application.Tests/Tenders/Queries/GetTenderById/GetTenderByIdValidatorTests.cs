@@ -1,25 +1,18 @@
 using FluentAssertions;
-using TendersData.Application.Tenders.Queries.GetTenderById;
+using TendersData.Tests.Common.Builders;
 
 namespace TendersData.Application.Tests.Tenders.Queries.GetTenderById;
 
-public class GetTenderByIdValidatorTests
+public class GetTenderByIdValidatorTests : GetTenderByIdValidatorMockHelper
 {
-    private readonly GetTenderByIdValidator _validator;
-
-    public GetTenderByIdValidatorTests()
-    {
-        _validator = new GetTenderByIdValidator();
-    }
-
     [Fact]
     public void Validate_WithValidId_ShouldPass()
     {
         // Arrange
-        var query = new GetTenderByIdQuery(1);
+        var query = GetTenderByIdQueryBuilder.Default.WithId(1).Build();
 
         // Act
-        var result = _validator.Validate(query);
+        var result = Validator.Validate(query);
 
         // Assert
         result.IsValid.Should().BeTrue();
@@ -33,10 +26,10 @@ public class GetTenderByIdValidatorTests
     public void Validate_WithInvalidId_ShouldFail(int id)
     {
         // Arrange
-        var query = new GetTenderByIdQuery(id);
+        var query = GetTenderByIdQueryBuilder.Default.WithId(id).Build();
 
         // Act
-        var result = _validator.Validate(query);
+        var result = Validator.Validate(query);
 
         // Assert
         result.IsValid.Should().BeFalse();
@@ -52,10 +45,10 @@ public class GetTenderByIdValidatorTests
     public void Validate_WithPositiveIds_ShouldPass(int id)
     {
         // Arrange
-        var query = new GetTenderByIdQuery(id);
+        var query = GetTenderByIdQueryBuilder.Default.WithId(id).Build();
 
         // Act
-        var result = _validator.Validate(query);
+        var result = Validator.Validate(query);
 
         // Assert
         result.IsValid.Should().BeTrue();
