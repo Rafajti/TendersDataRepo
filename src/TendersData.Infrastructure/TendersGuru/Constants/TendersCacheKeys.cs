@@ -1,4 +1,4 @@
-namespace TendersData.Infrastructure.TendersGuru;
+namespace TendersData.Infrastructure.TendersGuru.Constants;
 
 public static class TendersCacheKeys
 {

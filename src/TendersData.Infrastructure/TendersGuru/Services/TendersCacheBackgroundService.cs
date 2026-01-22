@@ -4,6 +4,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Json;
+using TendersData.Infrastructure.TendersGuru.Configuration;
+using TendersData.Infrastructure.TendersGuru.Constants;
 using TendersData.Infrastructure.TendersGuru.Mappers;
 using TendersData.Infrastructure.TendersGuru.Models;
 using TendersData.Infrastructure.TendersGuru.Repositories;

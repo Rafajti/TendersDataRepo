@@ -1,7 +1,8 @@
-using Microsoft.Extensions.Caching.Memory;
+﻿using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using TendersData.Application.Tenders.Models;
 using TendersData.Application.Tenders.Repositories;
+using TendersData.Infrastructure.TendersGuru.Constants;
 using TendersData.Infrastructure.TendersGuru.Mappers;
 using TendersData.Infrastructure.TendersGuru.Models;
 
