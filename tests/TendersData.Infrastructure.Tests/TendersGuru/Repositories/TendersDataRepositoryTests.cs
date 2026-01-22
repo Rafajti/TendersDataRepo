@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Moq;
 using RichardSzalay.MockHttp;
@@ -18,6 +19,7 @@ public class TendersDataRepositoryTests
     private readonly HttpClient _httpClient;
     private readonly Mock<ITenderMapper> _mapperMock;
     private readonly Mock<ILogger<TendersDataRepository>> _loggerMock;
+    private readonly IMemoryCache _memoryCache;
     private readonly TendersDataRepository _repository;
 
     public TendersDataRepositoryTests()
@@ -29,7 +31,8 @@ public class TendersDataRepositoryTests
         };
         _mapperMock = new Mock<ITenderMapper>();
         _loggerMock = new Mock<ILogger<TendersDataRepository>>();
-        _repository = new TendersDataRepository(_httpClient, _mapperMock.Object, _loggerMock.Object);
+        _memoryCache = new MemoryCache(new MemoryCacheOptions());
+        _repository = new TendersDataRepository(_httpClient, _mapperMock.Object, _loggerMock.Object, _memoryCache);
     }
 
     [Fact]
@@ -272,5 +275,54 @@ public class TendersDataRepositoryTests
 
         // Assert
         _mockHttp.VerifyNoOutstandingExpectation();
+    }
+
+    [Fact]
+    public async Task GetAllTendersAsync_WithCache_ReturnsCachedDataOnSecondCall()
+    {
+        // Arrange
+        var response = new TendersGuruResponse
+        {
+            Data = new List<TendersGuruItem>
+            {
+                new TendersGuruItem { Id = "1", Title = "Tender 1", AmountEur = "100", Date = "2024-01-01" }
+            }
+        };
+
+        var expectedTenders = new List<Tender>
+        {
+            new Tender(1, DateTime.Parse("2024-01-01"), "Tender 1", "", 100m, new List<Supplier>())
+        };
+
+        // Setup mock for first call only
+        for (int i = 1; i <= 5; i++)
+        {
+            _mockHttp
+                .When($"https://tenders.guru/api/pl/tenders?page={i}")
+                .Respond(HttpStatusCode.OK, JsonContent.Create(i == 1 ? response : new TendersGuruResponse { Data = new List<TendersGuruItem>() }));
+        }
+
+        _mapperMock
+            .Setup(m => m.MapToDomain(It.IsAny<IEnumerable<TendersGuruItem>>()))
+            .Returns(expectedTenders);
+
+        // Act - First call should fetch from API
+        var firstResult = await _repository.GetAllTendersAsync();
+
+        // Clear mock expectations to verify second call doesn't use API
+        _mockHttp.ResetExpectations();
+
+        // Act - Second call should use cache
+        var secondResult = await _repository.GetAllTendersAsync();
+
+        // Assert
+        firstResult.Should().NotBeNull();
+        secondResult.Should().NotBeNull();
+        firstResult.Should().BeEquivalentTo(secondResult);
+        
+        // Verify mapper was called only once (on first call)
+        _mapperMock.Verify(
+            m => m.MapToDomain(It.IsAny<IEnumerable<TendersGuruItem>>()),
+            Times.Once);
     }
 }

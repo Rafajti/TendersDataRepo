@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -11,13 +12,22 @@ namespace TendersData.Infrastructure.TendersGuru.Repositories;
 public class TendersDataRepository(
     HttpClient httpClient,
     ITenderMapper mapper,
-    ILogger<TendersDataRepository> logger) : ITendersDataRepository
+    ILogger<TendersDataRepository> logger,
+    IMemoryCache memoryCache) : ITendersDataRepository
 {
     private const int MaxConcurrentRequests = 4;
-    private readonly int pagesCount = 100;
+    private readonly int pagesCount = 10;
+    private const string CacheKey = "tenders:all";
+    private static readonly TimeSpan CacheExpiration = TimeSpan.FromHours(1);
 
     public async Task<IEnumerable<Tender>> GetAllTendersAsync(CancellationToken ct = default)
     {
+        if (memoryCache.TryGetValue<IEnumerable<Tender>>(CacheKey, out var cachedTenders))
+        {
+            logger.LogInformation("Returning cached tenders");
+            return cachedTenders ?? Enumerable.Empty<Tender>();
+        }
+
         var semaphore = new SemaphoreSlim(MaxConcurrentRequests);
 
         var tasks = Enumerable.Range(1, pagesCount).Select<int, Task<IEnumerable<TendersGuruItem>>>(async page =>
@@ -41,6 +51,14 @@ public class TendersDataRepository(
         var pageResults = await Task.WhenAll(tasks);
         var responseTenders = pageResults.SelectMany(x => x).ToList();
         var mappedTenders = mapper.MapToDomain(responseTenders);
+
+        var cacheOptions = new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = CacheExpiration
+        };
+
+        memoryCache.Set(CacheKey, mappedTenders, cacheOptions);
+        logger.LogInformation("Cached tenders with expiration of {Expiration} minutes", CacheExpiration.TotalMinutes);
 
         return mappedTenders;
     }
