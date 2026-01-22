@@ -8,11 +8,9 @@ services:
     container_name: tendersdata-api
     ports:
       - "8080:8080"
-      - "8081:8081"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_HTTP_PORTS=8080
-      - ASPNETCORE_HTTPS_PORTS=8081
+      - ASPNETCORE_URLS=http://+:8080
       - TendersGuru__BaseUrl=https://tenders.guru/api/pl/
       - TendersGuru__PagesCount=100
     restart: unless-stopped
