@@ -1,7 +1,7 @@
 @TendersData.Api_HostAddress = http://localhost:5216
 
 ### Get Tender by ID
-GET {{TendersData.Api_HostAddress}}/api/tenders/1
+GET {{TendersData.Api_HostAddress}}/api/tenders/564007
 Accept: application/json
 
 ###
