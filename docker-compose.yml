@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  tendersdata-api:
+    build:
+      context: .
+      dockerfile: src/TendersData.Api/Dockerfile
+    container_name: tendersdata-api
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - TendersGuru__BaseUrl=https://tenders.guru/api/pl/
+      - TendersGuru__PagesCount=100
+    restart: unless-stopped

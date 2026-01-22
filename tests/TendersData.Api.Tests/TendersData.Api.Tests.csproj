@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\TendersData.Api\TendersData.Api.csproj" />
     <ProjectReference Include="..\..\src\TendersData.Application\TendersData.Application.csproj" />
+    <ProjectReference Include="..\TendersData.Tests.Common\TendersData.Tests.Common.csproj" />
   </ItemGroup>
 
   <ItemGroup>

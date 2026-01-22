@@ -35,8 +35,6 @@ public class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger, IHos
             Instance = httpContext.Request.Path
         };
 
-        problemDetails.Extensions.Add("traceId", httpContext.TraceIdentifier);
-
         if (errors != null)
         {
             problemDetails.Extensions.Add("errors", errors);

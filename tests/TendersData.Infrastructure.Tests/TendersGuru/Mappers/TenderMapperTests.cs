@@ -1,41 +1,27 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
-using TendersData.Infrastructure.TendersGuru.Mappers;
-using TendersData.Infrastructure.TendersGuru.Models;
+using TendersData.Tests.Common.Builders;
 
 namespace TendersData.Infrastructure.Tests.TendersGuru.Mappers;
 
-public class TenderMapperTests
+public class TenderMapperTests : TenderMapperMockHelper
 {
-    private readonly Mock<ILogger<TenderMapper>> _loggerMock;
-    private readonly TenderMapper _mapper;
-
-    public TenderMapperTests()
-    {
-        _loggerMock = new Mock<ILogger<TenderMapper>>();
-        _mapper = new TenderMapper(_loggerMock.Object);
-    }
-
     [Fact]
     public void MapToDomain_WithValidItem_ReturnsTender()
     {
         // Arrange
-        var item = new TendersGuruItem
-        {
-            Id = "1",
-            Date = "2024-01-15",
-            Title = "Test Tender",
-            Description = "Test Description",
-            AmountEur = "1000.50",
-            Suppliers = new List<SupplierGuru>
-            {
-                new SupplierGuru { Id = 1, Name = "Supplier 1" }
-            }
-        };
+        var item = TendersGuruItemBuilder.Default
+            .WithId("1")
+            .WithDate("2024-01-15")
+            .WithTitle("Test Tender")
+            .WithDescription("Test Description")
+            .WithAmountEur("1000.50")
+            .WithSuppliers(SupplierGuruBuilder.Default.WithId(1).WithName("Supplier 1").Build())
+            .Build();
 
         // Act
-        var result = _mapper.MapToDomain(new[] { item }).First();
+        var result = Mapper.MapToDomain(new[] { item }).First();
 
         // Assert
         result.Should().NotBeNull();
@@ -53,15 +39,15 @@ public class TenderMapperTests
     public void MapToDomain_WithMultipleItems_ReturnsMultipleTenders()
     {
         // Arrange
-        var items = new List<TendersGuruItem>
+        var items = new[]
         {
-            new TendersGuruItem { Id = "1", Title = "Tender 1", AmountEur = "100", Date = "2024-01-01" },
-            new TendersGuruItem { Id = "2", Title = "Tender 2", AmountEur = "200", Date = "2024-01-02" },
-            new TendersGuruItem { Id = "3", Title = "Tender 3", AmountEur = "300", Date = "2024-01-03" }
+            TendersGuruItemBuilder.Default.WithId("1").WithTitle("Tender 1").WithAmountEur("100").WithDate("2024-01-01").Build(),
+            TendersGuruItemBuilder.Default.WithId("2").WithTitle("Tender 2").WithAmountEur("200").WithDate("2024-01-02").Build(),
+            TendersGuruItemBuilder.Default.WithId("3").WithTitle("Tender 3").WithAmountEur("300").WithDate("2024-01-03").Build()
         };
 
         // Act
-        var result = _mapper.MapToDomain(items).ToList();
+        var result = Mapper.MapToDomain(items).ToList();
 
         // Assert
         result.Should().HaveCount(3);
@@ -74,20 +60,19 @@ public class TenderMapperTests
     public void MapToDomain_WithInvalidId_LogsWarningAndUsesZero()
     {
         // Arrange
-        var item = new TendersGuruItem
-        {
-            Id = "invalid",
-            Title = "Test",
-            AmountEur = "100",
-            Date = "2024-01-01"
-        };
+        var item = TendersGuruItemBuilder.Default
+            .WithId("invalid")
+            .WithTitle("Test")
+            .WithAmountEur("100")
+            .WithDate("2024-01-01")
+            .Build();
 
         // Act
-        var result = _mapper.MapToDomain(new[] { item }).First();
+        var result = Mapper.MapToDomain(new[] { item }).First();
 
         // Assert
         result.Id.Should().Be(0);
-        _loggerMock.Verify(
+        LoggerMock.Verify(
             x => x.Log(
                 LogLevel.Warning,
                 It.IsAny<EventId>(),
@@ -101,16 +86,15 @@ public class TenderMapperTests
     public void MapToDomain_WithInvalidAmount_ReturnsZero()
     {
         // Arrange
-        var item = new TendersGuruItem
-        {
-            Id = "1",
-            Title = "Test",
-            AmountEur = "invalid",
-            Date = "2024-01-01"
-        };
+        var item = TendersGuruItemBuilder.Default
+            .WithId("1")
+            .WithTitle("Test")
+            .WithAmountEur("invalid")
+            .WithDate("2024-01-01")
+            .Build();
 
         // Act
-        var result = _mapper.MapToDomain(new[] { item }).First();
+        var result = Mapper.MapToDomain(new[] { item }).First();
 
         // Assert
         result.AmountEur.Should().Be(0);
@@ -120,16 +104,15 @@ public class TenderMapperTests
     public void MapToDomain_WithInvalidDate_ReturnsMinValue()
     {
         // Arrange
-        var item = new TendersGuruItem
-        {
-            Id = "1",
-            Title = "Test",
-            AmountEur = "100",
-            Date = "invalid-date"
-        };
+        var item = TendersGuruItemBuilder.Default
+            .WithId("1")
+            .WithTitle("Test")
+            .WithAmountEur("100")
+            .WithDate("invalid-date")
+            .Build();
 
         // Act
-        var result = _mapper.MapToDomain(new[] { item }).First();
+        var result = Mapper.MapToDomain(new[] { item }).First();
 
         // Assert
         result.Date.Should().Be(DateTime.MinValue);
@@ -139,17 +122,17 @@ public class TenderMapperTests
     public void MapToDomain_WithNullSuppliers_ReturnsEmptyList()
     {
         // Arrange
-        var item = new TendersGuruItem
-        {
-            Id = "1",
-            Title = "Test",
-            AmountEur = "100",
-            Date = "2024-01-01",
-            Suppliers = null
-        };
+        var item = TendersGuruItemBuilder.Default
+            .WithId("1")
+            .WithTitle("Test")
+            .WithAmountEur("100")
+            .WithDate("2024-01-01")
+            .WithSuppliers()
+            .Build();
+        item.Suppliers = null;
 
         // Act
-        var result = _mapper.MapToDomain(new[] { item }).First();
+        var result = Mapper.MapToDomain(new[] { item }).First();
 
         // Assert
         result.Suppliers.Should().NotBeNull();
@@ -160,17 +143,16 @@ public class TenderMapperTests
     public void MapToDomain_WithEmptySuppliers_ReturnsEmptyList()
     {
         // Arrange
-        var item = new TendersGuruItem
-        {
-            Id = "1",
-            Title = "Test",
-            AmountEur = "100",
-            Date = "2024-01-01",
-            Suppliers = new List<SupplierGuru>()
-        };
+        var item = TendersGuruItemBuilder.Default
+            .WithId("1")
+            .WithTitle("Test")
+            .WithAmountEur("100")
+            .WithDate("2024-01-01")
+            .WithSuppliers()
+            .Build();
 
         // Act
-        var result = _mapper.MapToDomain(new[] { item }).First();
+        var result = Mapper.MapToDomain(new[] { item }).First();
 
         // Assert
         result.Suppliers.Should().NotBeNull();
@@ -181,22 +163,19 @@ public class TenderMapperTests
     public void MapToDomain_WithMultipleSuppliers_ReturnsAllSuppliers()
     {
         // Arrange
-        var item = new TendersGuruItem
-        {
-            Id = "1",
-            Title = "Test",
-            AmountEur = "100",
-            Date = "2024-01-01",
-            Suppliers = new List<SupplierGuru>
-            {
-                new SupplierGuru { Id = 1, Name = "Supplier 1" },
-                new SupplierGuru { Id = 2, Name = "Supplier 2" },
-                new SupplierGuru { Id = 3, Name = "Supplier 3" }
-            }
-        };
+        var item = TendersGuruItemBuilder.Default
+            .WithId("1")
+            .WithTitle("Test")
+            .WithAmountEur("100")
+            .WithDate("2024-01-01")
+            .WithSuppliers(
+                SupplierGuruBuilder.Default.WithId(1).WithName("Supplier 1").Build(),
+                SupplierGuruBuilder.Default.WithId(2).WithName("Supplier 2").Build(),
+                SupplierGuruBuilder.Default.WithId(3).WithName("Supplier 3").Build())
+            .Build();
 
         // Act
-        var result = _mapper.MapToDomain(new[] { item }).First();
+        var result = Mapper.MapToDomain(new[] { item }).First();
 
         // Assert
         result.Suppliers.Should().HaveCount(3);
@@ -209,20 +188,16 @@ public class TenderMapperTests
     public void MapToDomain_WithNullSupplierName_UsesEmptyString()
     {
         // Arrange
-        var item = new TendersGuruItem
-        {
-            Id = "1",
-            Title = "Test",
-            AmountEur = "100",
-            Date = "2024-01-01",
-            Suppliers = new List<SupplierGuru>
-            {
-                new SupplierGuru { Id = 1, Name = null }
-            }
-        };
+        var item = TendersGuruItemBuilder.Default
+            .WithId("1")
+            .WithTitle("Test")
+            .WithAmountEur("100")
+            .WithDate("2024-01-01")
+            .WithSuppliers(SupplierGuruBuilder.Default.WithId(1).WithName(null).Build())
+            .Build();
 
         // Act
-        var result = _mapper.MapToDomain(new[] { item }).First();
+        var result = Mapper.MapToDomain(new[] { item }).First();
 
         // Assert
         result.Suppliers[0].Name.Should().Be(string.Empty);
@@ -232,17 +207,16 @@ public class TenderMapperTests
     public void MapToDomain_WithNullTitle_UsesEmptyString()
     {
         // Arrange
-        var item = new TendersGuruItem
-        {
-            Id = "1",
-            Title = null,
-            Description = "Test",
-            AmountEur = "100",
-            Date = "2024-01-01"
-        };
+        var item = TendersGuruItemBuilder.Default
+            .WithId("1")
+            .WithTitle(null!)
+            .WithDescription("Test")
+            .WithAmountEur("100")
+            .WithDate("2024-01-01")
+            .Build();
 
         // Act
-        var result = _mapper.MapToDomain(new[] { item }).First();
+        var result = Mapper.MapToDomain(new[] { item }).First();
 
         // Assert
         result.Title.Should().Be(string.Empty);
@@ -252,17 +226,16 @@ public class TenderMapperTests
     public void MapToDomain_WithNullDescription_UsesEmptyString()
     {
         // Arrange
-        var item = new TendersGuruItem
-        {
-            Id = "1",
-            Title = "Test",
-            Description = null,
-            AmountEur = "100",
-            Date = "2024-01-01"
-        };
+        var item = TendersGuruItemBuilder.Default
+            .WithId("1")
+            .WithTitle("Test")
+            .WithDescription(null!)
+            .WithAmountEur("100")
+            .WithDate("2024-01-01")
+            .Build();
 
         // Act
-        var result = _mapper.MapToDomain(new[] { item }).First();
+        var result = Mapper.MapToDomain(new[] { item }).First();
 
         // Assert
         result.Description.Should().Be(string.Empty);
@@ -272,16 +245,15 @@ public class TenderMapperTests
     public void MapToDomain_WithDecimalAmount_ParsesCorrectly()
     {
         // Arrange
-        var item = new TendersGuruItem
-        {
-            Id = "1",
-            Title = "Test",
-            AmountEur = "1234.56",
-            Date = "2024-01-01"
-        };
+        var item = TendersGuruItemBuilder.Default
+            .WithId("1")
+            .WithTitle("Test")
+            .WithAmountEur("1234.56")
+            .WithDate("2024-01-01")
+            .Build();
 
         // Act
-        var result = _mapper.MapToDomain(new[] { item }).First();
+        var result = Mapper.MapToDomain(new[] { item }).First();
 
         // Assert
         result.AmountEur.Should().Be(1234.56m);
@@ -291,10 +263,10 @@ public class TenderMapperTests
     public void MapToDomain_WithEmptyCollection_ReturnsEmptyCollection()
     {
         // Arrange
-        var items = Enumerable.Empty<TendersGuruItem>();
+        var items = Enumerable.Empty<TendersData.Infrastructure.TendersGuru.Models.TendersGuruItem>();
 
         // Act
-        var result = _mapper.MapToDomain(items);
+        var result = Mapper.MapToDomain(items);
 
         // Assert
         result.Should().BeEmpty();

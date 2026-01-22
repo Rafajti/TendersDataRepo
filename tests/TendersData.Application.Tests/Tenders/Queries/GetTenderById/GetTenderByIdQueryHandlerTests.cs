@@ -1,56 +1,37 @@
 using FluentAssertions;
 using Moq;
-using TendersData.Application.Tenders.Models;
-using TendersData.Application.Tenders.Queries.GetTenderById;
-using TendersData.Application.Tenders.Repositories;
+using TendersData.Tests.Common.Builders;
 
 namespace TendersData.Application.Tests.Tenders.Queries.GetTenderById;
 
-public class GetTenderByIdQueryHandlerTests
+public class GetTenderByIdQueryHandlerTests : GetTenderByIdQueryHandlerMockHelper
 {
-    private readonly Mock<ITendersDataRepository> _repositoryMock;
-    private readonly GetTenderByIdQueryHandler _handler;
-
-    public GetTenderByIdQueryHandlerTests()
-    {
-        _repositoryMock = new Mock<ITendersDataRepository>();
-        _handler = new GetTenderByIdQueryHandler(_repositoryMock.Object);
-    }
-
     [Fact]
     public async Task Handle_WithValidId_ReturnsTender()
     {
         // Arrange
         var id = 1;
-        var query = new GetTenderByIdQuery(id);
-        var cancellationToken = CancellationToken.None;
-        var expectedTender = new Tender(
-            Id: id,
-            Date: DateTime.UtcNow,
-            Title: "Test Tender",
-            Description: "Test Description",
-            AmountEur: 1000.50m,
-            Suppliers: new List<Supplier>
-            {
-                new Supplier(1, "Supplier 1")
-            }
-        );
-
-        _repositoryMock
-            .Setup(r => r.GetAllTendersAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Tender> { expectedTender });
+        var query = GetTenderByIdQueryBuilder.Default.WithId(id).Build();
+        var ct = CancellationToken.None;
+        var expectedTender = TenderBuilder.Default
+            .WithId(id)
+            .WithTitle("Test Tender")
+            .WithDescription("Test Description")
+            .WithAmountEur(1000.50m)
+            .WithSupplier(1, "Supplier 1")
+            .Build();
+        SetupGetAllTendersAsync([expectedTender]);
 
         // Act
-        var result = await _handler.Handle(query, cancellationToken);
+        var result = await Handler.Handle(query, ct);
 
         // Assert
         result.Should().NotBeNull();
         result.Should().Be(expectedTender);
         result!.Id.Should().Be(id);
-
-        _repositoryMock.Verify(
+        RepositoryMock.Verify(
             r => r.GetAllTendersAsync(It.IsAny<CancellationToken>()),
-            Times.Once);
+            Moq.Times.Once);
     }
 
     [Fact]
@@ -58,22 +39,18 @@ public class GetTenderByIdQueryHandlerTests
     {
         // Arrange
         var id = 999;
-        var query = new GetTenderByIdQuery(id);
-        var cancellationToken = CancellationToken.None;
-
-        _repositoryMock
-            .Setup(r => r.GetAllTendersAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Tender>());
+        var query = GetTenderByIdQueryBuilder.Default.WithId(id).Build();
+        var ct = CancellationToken.None;
+        SetupGetAllTendersAsync([]);
 
         // Act
-        var result = await _handler.Handle(query, cancellationToken);
+        var result = await Handler.Handle(query, ct);
 
         // Assert
         result.Should().BeNull();
-
-        _repositoryMock.Verify(
+        RepositoryMock.Verify(
             r => r.GetAllTendersAsync(It.IsAny<CancellationToken>()),
-            Times.Once);
+            Moq.Times.Once);
     }
 
     [Fact]
@@ -81,30 +58,26 @@ public class GetTenderByIdQueryHandlerTests
     {
         // Arrange
         var id = 2;
-        var query = new GetTenderByIdQuery(id);
-        var cancellationToken = CancellationToken.None;
-        var tenders = new List<Tender>
+        var query = GetTenderByIdQueryBuilder.Default.WithId(id).Build();
+        var ct = CancellationToken.None;
+        var tenders = new[]
         {
-            new Tender(1, DateTime.UtcNow, "Tender 1", "Desc 1", 100m, new List<Supplier>()),
-            new Tender(2, DateTime.UtcNow, "Tender 2", "Desc 2", 200m, new List<Supplier>()),
-            new Tender(3, DateTime.UtcNow, "Tender 3", "Desc 3", 300m, new List<Supplier>())
+            TenderBuilder.Default.WithId(1).WithTitle("Tender 1").WithAmountEur(100m).Build(),
+            TenderBuilder.Default.WithId(2).WithTitle("Tender 2").WithAmountEur(200m).Build(),
+            TenderBuilder.Default.WithId(3).WithTitle("Tender 3").WithAmountEur(300m).Build()
         };
-
-        _repositoryMock
-            .Setup(r => r.GetAllTendersAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(tenders);
+        SetupGetAllTendersAsync(tenders);
 
         // Act
-        var result = await _handler.Handle(query, cancellationToken);
+        var result = await Handler.Handle(query, ct);
 
         // Assert
         result.Should().NotBeNull();
         result!.Id.Should().Be(2);
         result.Title.Should().Be("Tender 2");
-
-        _repositoryMock.Verify(
+        RepositoryMock.Verify(
             r => r.GetAllTendersAsync(It.IsAny<CancellationToken>()),
-            Times.Once);
+            Moq.Times.Once);
     }
 
     [Theory]
@@ -114,62 +87,48 @@ public class GetTenderByIdQueryHandlerTests
     public async Task Handle_WithDifferentIds_CallsRepository(int id)
     {
         // Arrange
-        var query = new GetTenderByIdQuery(id);
-        var cancellationToken = CancellationToken.None;
-        var tenders = new List<Tender>
-        {
-            new Tender(id, DateTime.UtcNow, $"Tender {id}", "Description", 500m, new List<Supplier>())
-        };
-
-        _repositoryMock
-            .Setup(r => r.GetAllTendersAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(tenders);
+        var query = GetTenderByIdQueryBuilder.Default.WithId(id).Build();
+        var ct = CancellationToken.None;
+        var tenders = new[] { TenderBuilder.Default.WithId(id).WithTitle($"Tender {id}").WithAmountEur(500m).Build() };
+        SetupGetAllTendersAsync(tenders);
 
         // Act
-        var result = await _handler.Handle(query, cancellationToken);
+        var result = await Handler.Handle(query, ct);
 
         // Assert
         result.Should().NotBeNull();
         result!.Id.Should().Be(id);
-
-        _repositoryMock.Verify(
+        RepositoryMock.Verify(
             r => r.GetAllTendersAsync(It.IsAny<CancellationToken>()),
-            Times.Once);
+            Moq.Times.Once);
     }
 
     [Fact]
     public async Task Handle_WithCancellationToken_PassesItToRepository()
     {
         // Arrange
-        var query = new GetTenderByIdQuery(1);
-        var cancellationToken = new CancellationTokenSource().Token;
-
-        _repositoryMock
-            .Setup(r => r.GetAllTendersAsync(cancellationToken))
-            .ReturnsAsync(new List<Tender>());
+        var query = GetTenderByIdQueryBuilder.Default.WithId(1).Build();
+        var cts = new CancellationTokenSource();
+        var ct = cts.Token;
+        SetupGetAllTendersAsync(ct, []);
 
         // Act
-        await _handler.Handle(query, cancellationToken);
+        await Handler.Handle(query, ct);
 
         // Assert
-        _repositoryMock.Verify(
-            r => r.GetAllTendersAsync(cancellationToken),
-            Times.Once);
+        VerifyGetAllTendersAsync(ct, Times.Exactly(1));
     }
 
     [Fact]
     public async Task Handle_WithEmptyRepository_ReturnsNull()
     {
         // Arrange
-        var query = new GetTenderByIdQuery(1);
-        var cancellationToken = CancellationToken.None;
-
-        _repositoryMock
-            .Setup(r => r.GetAllTendersAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Tender>());
+        var query = GetTenderByIdQueryBuilder.Default.WithId(1).Build();
+        var ct = CancellationToken.None;
+        SetupGetAllTendersAsync([]);
 
         // Act
-        var result = await _handler.Handle(query, cancellationToken);
+        var result = await Handler.Handle(query, ct);
 
         // Assert
         result.Should().BeNull();
