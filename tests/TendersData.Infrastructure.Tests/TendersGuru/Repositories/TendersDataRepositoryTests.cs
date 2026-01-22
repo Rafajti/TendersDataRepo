@@ -1,48 +1,38 @@
 using FluentAssertions;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Moq;
-using RichardSzalay.MockHttp;
-using System.Net;
-using System.Net.Http.Json;
 using TendersData.Application.Tenders.Models;
+using TendersData.Infrastructure.TendersGuru;
 using TendersData.Infrastructure.TendersGuru.Mappers;
 using TendersData.Infrastructure.TendersGuru.Models;
 using TendersData.Infrastructure.TendersGuru.Repositories;
-using Xunit;
 
 namespace TendersData.Infrastructure.Tests.TendersGuru.Repositories;
 
 public class TendersDataRepositoryTests
 {
-    private readonly MockHttpMessageHandler _mockHttp;
-    private readonly HttpClient _httpClient;
-    private readonly Mock<ITenderMapper> _mapperMock;
     private readonly Mock<ILogger<TendersDataRepository>> _loggerMock;
+    private readonly Mock<ITenderMapper> _mapperMock;
+    private readonly IMemoryCache _memoryCache;
     private readonly TendersDataRepository _repository;
 
     public TendersDataRepositoryTests()
     {
-        _mockHttp = new MockHttpMessageHandler();
-        _httpClient = new HttpClient(_mockHttp)
-        {
-            BaseAddress = new Uri("https://tenders.guru/api/pl/")
-        };
-        _mapperMock = new Mock<ITenderMapper>();
         _loggerMock = new Mock<ILogger<TendersDataRepository>>();
-        _repository = new TendersDataRepository(_httpClient, _mapperMock.Object, _loggerMock.Object);
+        _mapperMock = new Mock<ITenderMapper>();
+        _memoryCache = new MemoryCache(new MemoryCacheOptions());
+        _repository = new TendersDataRepository(_loggerMock.Object, _memoryCache, _mapperMock.Object);
     }
 
     [Fact]
-    public async Task GetAllTendersAsync_WithValidResponse_ReturnsMappedTenders()
+    public async Task GetAllTendersAsync_WithCachedData_ReturnsCachedTenders()
     {
         // Arrange
-        var response = new TendersGuruResponse
+        var cachedItems = new List<TendersGuruItem>
         {
-            Data = new List<TendersGuruItem>
-            {
-                new TendersGuruItem { Id = "1", Title = "Tender 1", AmountEur = "100", Date = "2024-01-01" },
-                new TendersGuruItem { Id = "2", Title = "Tender 2", AmountEur = "200", Date = "2024-01-02" }
-            }
+            new TendersGuruItem { Id = "1", Date = "2024-01-01", Title = "Tender 1", AmountEur = "100" },
+            new TendersGuruItem { Id = "2", Date = "2024-01-02", Title = "Tender 2", AmountEur = "200" }
         };
 
         var expectedTenders = new List<Tender>
@@ -51,29 +41,9 @@ public class TendersDataRepositoryTests
             new Tender(2, DateTime.Parse("2024-01-02"), "Tender 2", "", 200m, new List<Supplier>())
         };
 
-        _mockHttp
-            .When("https://tenders.guru/api/pl/tenders?page=1")
-            .Respond(HttpStatusCode.OK, JsonContent.Create(response));
-
-        _mockHttp
-            .When("https://tenders.guru/api/pl/tenders?page=2")
-            .Respond(HttpStatusCode.OK, JsonContent.Create(new TendersGuruResponse { Data = new List<TendersGuruItem>() }));
-
-        _mockHttp
-            .When("https://tenders.guru/api/pl/tenders?page=3")
-            .Respond(HttpStatusCode.OK, JsonContent.Create(new TendersGuruResponse { Data = new List<TendersGuruItem>() }));
-
-        _mockHttp
-            .When("https://tenders.guru/api/pl/tenders?page=4")
-            .Respond(HttpStatusCode.OK, JsonContent.Create(new TendersGuruResponse { Data = new List<TendersGuruItem>() }));
-
-        _mockHttp
-            .When("https://tenders.guru/api/pl/tenders?page=5")
-            .Respond(HttpStatusCode.OK, JsonContent.Create(new TendersGuruResponse { Data = new List<TendersGuruItem>() }));
-
-        _mapperMock
-            .Setup(m => m.MapToDomain(It.IsAny<IEnumerable<TendersGuruItem>>()))
-            .Returns(expectedTenders);
+        // Simulate background service loading data into cache
+        _memoryCache.Set(TendersCacheKeys.AllTenders, cachedItems);
+        _mapperMock.Setup(m => m.MapToDomain(cachedItems)).Returns(expectedTenders);
 
         // Act
         var result = await _repository.GetAllTendersAsync();
@@ -81,86 +51,13 @@ public class TendersDataRepositoryTests
         // Assert
         result.Should().NotBeNull();
         result.Should().BeEquivalentTo(expectedTenders);
-        _mapperMock.Verify(
-            m => m.MapToDomain(It.IsAny<IEnumerable<TendersGuruItem>>()),
-            Times.Once);
+        _mapperMock.Verify(m => m.MapToDomain(cachedItems), Times.Once);
     }
 
     [Fact]
-    public async Task GetAllTendersAsync_WithMultiplePages_ProcessesAllPages()
+    public async Task GetAllTendersAsync_WithEmptyCache_ReturnsEmptyList()
     {
-        // Arrange
-        var page1Response = new TendersGuruResponse
-        {
-            Data = new List<TendersGuruItem> { new TendersGuruItem { Id = "1", Title = "Tender 1", AmountEur = "100", Date = "2024-01-01" } }
-        };
-
-        var page2Response = new TendersGuruResponse
-        {
-            Data = new List<TendersGuruItem> { new TendersGuruItem { Id = "2", Title = "Tender 2", AmountEur = "200", Date = "2024-01-02" } }
-        };
-
-        _mockHttp
-            .When("https://tenders.guru/api/pl/tenders?page=1")
-            .Respond(HttpStatusCode.OK, JsonContent.Create(page1Response));
-
-        _mockHttp
-            .When("https://tenders.guru/api/pl/tenders?page=2")
-            .Respond(HttpStatusCode.OK, JsonContent.Create(page2Response));
-
-        _mockHttp
-            .When("https://tenders.guru/api/pl/tenders?page=3")
-            .Respond(HttpStatusCode.OK, JsonContent.Create(new TendersGuruResponse { Data = new List<TendersGuruItem>() }));
-
-        _mockHttp
-            .When("https://tenders.guru/api/pl/tenders?page=4")
-            .Respond(HttpStatusCode.OK, JsonContent.Create(new TendersGuruResponse { Data = new List<TendersGuruItem>() }));
-
-        _mockHttp
-            .When("https://tenders.guru/api/pl/tenders?page=5")
-            .Respond(HttpStatusCode.OK, JsonContent.Create(new TendersGuruResponse { Data = new List<TendersGuruItem>() }));
-
-        var allItems = new List<TendersGuruItem>();
-        _mapperMock
-            .Setup(m => m.MapToDomain(It.IsAny<IEnumerable<TendersGuruItem>>()))
-            .Callback<IEnumerable<TendersGuruItem>>(items => allItems.AddRange(items))
-            .Returns(new List<Tender>());
-
-        // Act
-        await _repository.GetAllTendersAsync();
-
-        // Assert
-        allItems.Should().HaveCount(2);
-        _mapperMock.Verify(
-            m => m.MapToDomain(It.IsAny<IEnumerable<TendersGuruItem>>()),
-            Times.Once);
-    }
-
-    [Fact]
-    public async Task GetAllTendersAsync_WithNullData_SkipsPage()
-    {
-        // Arrange
-        var response = new TendersGuruResponse { Data = null };
-
-        _mockHttp
-            .When("https://tenders.guru/api/pl/tenders?page=1")
-            .Respond(HttpStatusCode.OK, JsonContent.Create(response));
-
-        _mockHttp
-            .When("https://tenders.guru/api/pl/tenders?page=2")
-            .Respond(HttpStatusCode.OK, JsonContent.Create(new TendersGuruResponse { Data = new List<TendersGuruItem>() }));
-
-        _mockHttp
-            .When("https://tenders.guru/api/pl/tenders?page=3")
-            .Respond(HttpStatusCode.OK, JsonContent.Create(new TendersGuruResponse { Data = new List<TendersGuruItem>() }));
-
-        _mockHttp
-            .When("https://tenders.guru/api/pl/tenders?page=4")
-            .Respond(HttpStatusCode.OK, JsonContent.Create(new TendersGuruResponse { Data = new List<TendersGuruItem>() }));
-
-        _mockHttp
-            .When("https://tenders.guru/api/pl/tenders?page=5")
-            .Respond(HttpStatusCode.OK, JsonContent.Create(new TendersGuruResponse { Data = new List<TendersGuruItem>() }));
+        // Arrange - cache is empty (background service hasn't loaded data yet)
 
         // Act
         var result = await _repository.GetAllTendersAsync();
@@ -168,114 +65,105 @@ public class TendersDataRepositoryTests
         // Assert
         result.Should().NotBeNull();
         result.Should().BeEmpty();
-        _mapperMock.Verify(
-            m => m.MapToDomain(It.IsAny<IEnumerable<TendersGuruItem>>()),
-            Times.Once);
+        _mapperMock.Verify(m => m.MapToDomain(It.IsAny<IEnumerable<TendersGuruItem>>()), Times.Never);
     }
 
     [Fact]
-    public async Task GetAllTendersAsync_WithHttpException_LogsWarningAndContinues()
+    public async Task GetAllTendersAsync_WithNullCachedData_ReturnsEmptyList()
     {
         // Arrange
-        _mockHttp
-            .When("https://tenders.guru/api/pl/tenders?page=1")
-            .Throw(new HttpRequestException("Network error"));
-
-        _mockHttp
-            .When("https://tenders.guru/api/pl/tenders?page=2")
-            .Respond(HttpStatusCode.OK, JsonContent.Create(new TendersGuruResponse { Data = new List<TendersGuruItem>() }));
-
-        _mockHttp
-            .When("https://tenders.guru/api/pl/tenders?page=3")
-            .Respond(HttpStatusCode.OK, JsonContent.Create(new TendersGuruResponse { Data = new List<TendersGuruItem>() }));
-
-        _mockHttp
-            .When("https://tenders.guru/api/pl/tenders?page=4")
-            .Respond(HttpStatusCode.OK, JsonContent.Create(new TendersGuruResponse { Data = new List<TendersGuruItem>() }));
-
-        _mockHttp
-            .When("https://tenders.guru/api/pl/tenders?page=5")
-            .Respond(HttpStatusCode.OK, JsonContent.Create(new TendersGuruResponse { Data = new List<TendersGuruItem>() }));
+        _memoryCache.Set(TendersCacheKeys.AllTenders, (IEnumerable<TendersGuruItem>?)null);
+        _mapperMock.Setup(m => m.MapToDomain(It.IsAny<IEnumerable<TendersGuruItem>>())).Returns(Enumerable.Empty<Tender>());
 
         // Act
         var result = await _repository.GetAllTendersAsync();
 
         // Assert
         result.Should().NotBeNull();
-        _loggerMock.Verify(
-            x => x.Log(
-                LogLevel.Warning,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Cos sie wypieprzylo")),
-                It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.Once);
+        result.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task GetAllTendersAsync_WithCancellationToken_PassesTokenToHttpClient()
+    public async Task GetAllTendersAsync_WithCache_ReturnsCachedDataOnMultipleCalls()
     {
         // Arrange
+        var cachedItems = new List<TendersGuruItem>
+        {
+            new TendersGuruItem { Id = "1", Date = "2024-01-01", Title = "Tender 1", AmountEur = "100" }
+        };
+
+        var expectedTenders = new List<Tender>
+        {
+            new Tender(1, DateTime.Parse("2024-01-01"), "Tender 1", "", 100m, new List<Supplier>())
+        };
+
+        _memoryCache.Set(TendersCacheKeys.AllTenders, cachedItems);
+        _mapperMock.Setup(m => m.MapToDomain(cachedItems)).Returns(expectedTenders);
+
+        // Act - Multiple calls should all return cached data
+        var firstResult = await _repository.GetAllTendersAsync();
+        var secondResult = await _repository.GetAllTendersAsync();
+        var thirdResult = await _repository.GetAllTendersAsync();
+
+        // Assert
+        firstResult.Should().NotBeNull();
+        secondResult.Should().NotBeNull();
+        thirdResult.Should().NotBeNull();
+        firstResult.Should().BeEquivalentTo(secondResult);
+        secondResult.Should().BeEquivalentTo(thirdResult);
+        firstResult.Should().BeEquivalentTo(expectedTenders);
+        _mapperMock.Verify(m => m.MapToDomain(cachedItems), Times.Exactly(3));
+    }
+
+    [Fact]
+    public async Task GetAllTendersAsync_WithCancellationToken_AcceptsToken()
+    {
+        // Arrange
+        var cachedItems = new List<TendersGuruItem>
+        {
+            new TendersGuruItem { Id = "1", Date = "2024-01-01", Title = "Tender 1", AmountEur = "100" }
+        };
+
+        var expectedTenders = new List<Tender>
+        {
+            new Tender(1, DateTime.Parse("2024-01-01"), "Tender 1", "", 100m, new List<Supplier>())
+        };
+
+        _memoryCache.Set(TendersCacheKeys.AllTenders, cachedItems);
+        _mapperMock.Setup(m => m.MapToDomain(cachedItems)).Returns(expectedTenders);
         var cancellationToken = new CancellationTokenSource().Token;
-        var response = new TendersGuruResponse { Data = new List<TendersGuruItem>() };
-
-        for (int i = 1; i <= 5; i++)
-        {
-            _mockHttp
-                .When($"https://tenders.guru/api/pl/tenders?page={i}")
-                .Respond(HttpStatusCode.OK, JsonContent.Create(response));
-        }
 
         // Act
-        await _repository.GetAllTendersAsync(cancellationToken);
+        var result = await _repository.GetAllTendersAsync(cancellationToken);
 
         // Assert
-        // Token is passed to HttpClient, but MockHttp doesn't validate it
-        // This test verifies the method accepts and uses the token parameter
-        _mockHttp.VerifyNoOutstandingExpectation();
+        result.Should().NotBeNull();
+        result.Should().BeEquivalentTo(expectedTenders);
+        _mapperMock.Verify(m => m.MapToDomain(cachedItems), Times.Once);
     }
 
     [Fact]
-    public async Task GetAllTendersAsync_WithEmptyPages_ReturnsEmptyList()
+    public async Task GetAllTendersAsync_AfterCacheExpiration_ReturnsEmptyList()
     {
         // Arrange
-        var emptyResponse = new TendersGuruResponse { Data = new List<TendersGuruItem>() };
-
-        for (int i = 1; i <= 5; i++)
+        var cachedItems = new List<TendersGuruItem>
         {
-            _mockHttp
-                .When($"https://tenders.guru/api/pl/tenders?page={i}")
-                .Respond(HttpStatusCode.OK, JsonContent.Create(emptyResponse));
-        }
+            new TendersGuruItem { Id = "1", Date = "2024-01-01", Title = "Tender 1", AmountEur = "100" }
+        };
+
+        // Set cache with expiration that has already passed
+        var cacheOptions = new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(-1) // Already expired
+        };
+        _memoryCache.Set(TendersCacheKeys.AllTenders, cachedItems, cacheOptions);
 
         // Act
         var result = await _repository.GetAllTendersAsync();
 
-        // Assert
+        // Assert - Cache entry expired, so should return empty
         result.Should().NotBeNull();
         result.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task GetAllTendersAsync_ProcessesExactlyFivePages()
-    {
-        // Arrange
-        var response = new TendersGuruResponse
-        {
-            Data = new List<TendersGuruItem> { new TendersGuruItem { Id = "1", Title = "Test", AmountEur = "100", Date = "2024-01-01" } }
-        };
-
-        for (int i = 1; i <= 5; i++)
-        {
-            _mockHttp
-                .When($"https://tenders.guru/api/pl/tenders?page={i}")
-                .Respond(HttpStatusCode.OK, JsonContent.Create(response));
-        }
-
-        // Act
-        await _repository.GetAllTendersAsync();
-
-        // Assert
-        _mockHttp.VerifyNoOutstandingExpectation();
+        _mapperMock.Verify(m => m.MapToDomain(It.IsAny<IEnumerable<TendersGuruItem>>()), Times.Never);
     }
 }
