@@ -4,8 +4,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Json;
-using TendersData.Application.Tenders;
 using TendersData.Infrastructure.TendersGuru.Configuration;
+using TendersData.Infrastructure.TendersGuru.Constants;
 using TendersData.Infrastructure.TendersGuru.Mappers;
 using TendersData.Infrastructure.TendersGuru.Models;
 using TendersData.Infrastructure.TendersGuru.Repositories;
@@ -27,7 +27,7 @@ public class TendersCacheBackgroundService(
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            await Task.Delay(TendersConstants.BackgroundService.RefreshIntervalMinutes, stoppingToken);
+            await Task.Delay(InfrastructureConstants.BackgroundService.RefreshIntervalMinutes, stoppingToken);
             
             if (!stoppingToken.IsCancellationRequested)
             {
@@ -49,7 +49,7 @@ public class TendersCacheBackgroundService(
             var mapper = scope.ServiceProvider.GetRequiredService<ITenderMapper>();
             var memoryCache = scope.ServiceProvider.GetRequiredService<IMemoryCache>();
             
-            var semaphore = new SemaphoreSlim(TendersConstants.BackgroundService.MaxConcurrentRequests);
+            var semaphore = new SemaphoreSlim(InfrastructureConstants.BackgroundService.MaxConcurrentRequests);
 
             var tasks = Enumerable.Range(1, _options.PagesCount).Select<int, Task<IEnumerable<TendersGuruItem>>>(async page =>
             {
@@ -85,12 +85,12 @@ public class TendersCacheBackgroundService(
 
             var cacheOptions = new MemoryCacheEntryOptions
             {
-                AbsoluteExpirationRelativeToNow = TendersConstants.BackgroundService.CacheExpiration
+                AbsoluteExpirationRelativeToNow = InfrastructureConstants.BackgroundService.CacheExpiration
             };
 
-            memoryCache.Set(TendersConstants.CacheKeys.AllTenders, responseTenders, cacheOptions);
+            memoryCache.Set(InfrastructureConstants.CacheKeys.AllTenders, responseTenders, cacheOptions);
             logger.LogInformation("Loaded and cached {Count} tenders with expiration of {Expiration} minutes",
-                responseTenders.Count(), TendersConstants.BackgroundService.CacheExpiration.TotalMinutes);
+                responseTenders.Count(), InfrastructureConstants.BackgroundService.CacheExpiration.TotalMinutes);
         }
         catch (OperationCanceledException)
         {

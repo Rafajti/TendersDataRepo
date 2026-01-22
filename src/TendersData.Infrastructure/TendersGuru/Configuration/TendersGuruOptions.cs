@@ -1,5 +1,3 @@
-using TendersData.Application.Tenders;
-
 namespace TendersData.Infrastructure.TendersGuru.Configuration;
 
 public class TendersGuruOptions

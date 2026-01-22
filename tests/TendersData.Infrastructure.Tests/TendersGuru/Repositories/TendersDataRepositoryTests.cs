@@ -2,8 +2,8 @@ using FluentAssertions;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Moq;
-using TendersData.Application.Tenders;
 using TendersData.Application.Tenders.Models;
+using TendersData.Infrastructure.TendersGuru.Constants;
 using TendersData.Infrastructure.TendersGuru.Mappers;
 using TendersData.Infrastructure.TendersGuru.Models;
 using TendersData.Infrastructure.TendersGuru.Repositories;
@@ -42,7 +42,7 @@ public class TendersDataRepositoryTests
         };
 
         // Simulate background service loading data into cache
-        _memoryCache.Set(TendersConstants.CacheKeys.AllTenders, cachedItems);
+        _memoryCache.Set(InfrastructureConstants.CacheKeys.AllTenders, cachedItems);
         _mapperMock.Setup(m => m.MapToDomain(cachedItems)).Returns(expectedTenders);
 
         // Act
@@ -72,7 +72,7 @@ public class TendersDataRepositoryTests
     public async Task GetAllTendersAsync_WithNullCachedData_ReturnsEmptyList()
     {
         // Arrange
-        _memoryCache.Set(TendersConstants.CacheKeys.AllTenders, (IEnumerable<TendersGuruItem>?)null);
+        _memoryCache.Set(InfrastructureConstants.CacheKeys.AllTenders, (IEnumerable<TendersGuruItem>?)null);
         _mapperMock.Setup(m => m.MapToDomain(It.IsAny<IEnumerable<TendersGuruItem>>())).Returns(Enumerable.Empty<Tender>());
 
         // Act
@@ -97,7 +97,7 @@ public class TendersDataRepositoryTests
             new Tender(1, DateTime.Parse("2024-01-01"), "Tender 1", "", 100m, new List<Supplier>())
         };
 
-        _memoryCache.Set(TendersConstants.CacheKeys.AllTenders, cachedItems);
+        _memoryCache.Set(InfrastructureConstants.CacheKeys.AllTenders, cachedItems);
         _mapperMock.Setup(m => m.MapToDomain(cachedItems)).Returns(expectedTenders);
 
         // Act - Multiple calls should all return cached data
@@ -129,7 +129,7 @@ public class TendersDataRepositoryTests
             new Tender(1, DateTime.Parse("2024-01-01"), "Tender 1", "", 100m, new List<Supplier>())
         };
 
-        _memoryCache.Set(TendersConstants.CacheKeys.AllTenders, cachedItems);
+        _memoryCache.Set(InfrastructureConstants.CacheKeys.AllTenders, cachedItems);
         _mapperMock.Setup(m => m.MapToDomain(cachedItems)).Returns(expectedTenders);
         var cancellationToken = new CancellationTokenSource().Token;
 
@@ -156,7 +156,7 @@ public class TendersDataRepositoryTests
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromMilliseconds(50) // Very short expiration
         };
-        _memoryCache.Set(TendersConstants.CacheKeys.AllTenders, cachedItems, cacheOptions);
+        _memoryCache.Set(InfrastructureConstants.CacheKeys.AllTenders, cachedItems, cacheOptions);
 
         // Wait for cache to expire
         await Task.Delay(100);

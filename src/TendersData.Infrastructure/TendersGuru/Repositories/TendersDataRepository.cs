@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
-using TendersData.Application.Tenders;
 using TendersData.Application.Tenders.Models;
 using TendersData.Application.Tenders.Repositories;
+using TendersData.Infrastructure.TendersGuru.Constants;
 using TendersData.Infrastructure.TendersGuru.Mappers;
 using TendersData.Infrastructure.TendersGuru.Models;
 
@@ -15,7 +15,7 @@ public class TendersDataRepository(
 {
     public async Task<IEnumerable<Tender>> GetAllTendersAsync(CancellationToken ct = default)
     {
-        if (memoryCache.TryGetValue<IEnumerable<TendersGuruItem>>(TendersConstants.CacheKeys.AllTenders, out var cachedApiData))
+        if (memoryCache.TryGetValue<IEnumerable<TendersGuruItem>>(InfrastructureConstants.CacheKeys.AllTenders, out var cachedApiData))
         {
             logger.LogInformation("Returning cached tenders.");
             var mappedTenders = mapper.MapToDomain(cachedApiData ?? []);
