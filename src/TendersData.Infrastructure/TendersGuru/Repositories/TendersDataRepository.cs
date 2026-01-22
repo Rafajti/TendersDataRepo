@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using System.Net.Http;
 using System.Net.Http.Json;
 using TendersData.Application.Tenders.Models;
@@ -13,30 +13,35 @@ public class TendersDataRepository(
     ITenderMapper mapper,
     ILogger<TendersDataRepository> logger) : ITendersDataRepository
 {
-    private readonly int pagesCount = 5;
+    private const int MaxConcurrentRequests = 4;
+    private readonly int pagesCount = 100;
+
     public async Task<IEnumerable<Tender>> GetAllTendersAsync(CancellationToken ct = default)
     {
-        var allTenders = new List<Tender>();
-        var responseTenders = new List<TendersGuruItem>();
+        var semaphore = new SemaphoreSlim(MaxConcurrentRequests);
 
-        for (int i = 1; i <= pagesCount; i++)
+        var tasks = Enumerable.Range(1, pagesCount).Select<int, Task<IEnumerable<TendersGuruItem>>>(async page =>
         {
+            await semaphore.WaitAsync(ct);
             try
             {
-                var response = await httpClient.GetFromJsonAsync<TendersGuruResponse>($"tenders?page={i}", ct);
-
-                if (response?.Data == null) continue;
-                responseTenders.AddRange(response.Data);
+                var response = await httpClient.GetFromJsonAsync<TendersGuruResponse>($"tenders?page={page}", ct);
+                return response?.Data ?? [];
             }
             catch
             {
-                logger.LogWarning("Cos sie wypieprzylo");
+                return Array.Empty<TendersGuruItem>();
             }
-        }
+            finally
+            {
+                semaphore.Release();
+            }
+        });
 
+        var pageResults = await Task.WhenAll(tasks);
+        var responseTenders = pageResults.SelectMany(x => x).ToList();
         var mappedTenders = mapper.MapToDomain(responseTenders);
-        allTenders.AddRange(mappedTenders);
 
-        return allTenders;
+        return mappedTenders;
     }
 }

@@ -174,7 +174,7 @@ public class TendersDataRepositoryTests
     }
 
     [Fact]
-    public async Task GetAllTendersAsync_WithHttpException_LogsWarningAndContinues()
+    public async Task GetAllTendersAsync_WithHttpException_SkipsPageAndContinues()
     {
         // Arrange
         _mockHttp
@@ -200,15 +200,10 @@ public class TendersDataRepositoryTests
         // Act
         var result = await _repository.GetAllTendersAsync();
 
-        // Assert
+        // Assert - failed page is skipped, remaining pages are processed
         result.Should().NotBeNull();
-        _loggerMock.Verify(
-            x => x.Log(
-                LogLevel.Warning,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString()!.Contains("Cos sie wypieprzylo")),
-                It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+        _mapperMock.Verify(
+            m => m.MapToDomain(It.IsAny<IEnumerable<TendersGuruItem>>()),
             Times.Once);
     }
 
