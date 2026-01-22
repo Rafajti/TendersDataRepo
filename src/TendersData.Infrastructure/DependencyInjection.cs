@@ -5,7 +5,7 @@ using Polly;
 using Polly.Extensions.Http;
 using Polly.Timeout;
 using TendersData.Application.Tenders.Repositories;
-using TendersData.Infrastructure.TendersGuru;
+using TendersData.Infrastructure.TendersGuru.Configuration;
 using TendersData.Infrastructure.TendersGuru.Mappers;
 using TendersData.Infrastructure.TendersGuru.Repositories;
 using TendersData.Infrastructure.TendersGuru.Services;
