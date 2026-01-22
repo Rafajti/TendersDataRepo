@@ -5,7 +5,6 @@ using Moq;
 using TendersData.Api.Controllers;
 using TendersData.Application.Tenders.Models;
 using TendersData.Application.Tenders.Queries.GetTenderById;
-using Xunit;
 
 namespace TendersData.Api.Tests.Controllers;
 

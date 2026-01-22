@@ -3,7 +3,6 @@ using Moq;
 using TendersData.Application.Tenders.Models;
 using TendersData.Application.Tenders.Queries.GetTenderById;
 using TendersData.Application.Tenders.Repositories;
-using Xunit;
 
 namespace TendersData.Application.Tests.Tenders.Queries.GetTenderById;
 

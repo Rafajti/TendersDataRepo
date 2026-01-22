@@ -1,10 +1,8 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
-using TendersData.Application.Tenders.Models;
 using TendersData.Infrastructure.TendersGuru.Mappers;
 using TendersData.Infrastructure.TendersGuru.Models;
-using Xunit;
 
 namespace TendersData.Infrastructure.Tests.TendersGuru.Mappers;
 

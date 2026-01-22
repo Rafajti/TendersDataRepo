@@ -1,6 +1,4 @@
 using FluentAssertions;
-using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Hosting;
@@ -9,7 +7,6 @@ using Moq;
 using System.Net;
 using System.Text.Json;
 using TendersData.Api.Middlewares;
-using Xunit;
 
 namespace TendersData.Api.Tests.Middlewares;
 

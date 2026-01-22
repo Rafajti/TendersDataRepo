@@ -1,0 +1,9 @@
+namespace TendersData.Infrastructure.TendersGuru;
+
+public class TendersGuruOptions
+{
+    public const string SectionName = "TendersGuru";
+    
+    public int PagesCount { get; set; } = 100;
+    public string BaseUrl { get; set; } = "https://tenders.guru/api/pl/";
+}

@@ -5,8 +5,10 @@ using Polly;
 using Polly.Extensions.Http;
 using Polly.Timeout;
 using TendersData.Application.Tenders.Repositories;
+using TendersData.Infrastructure.TendersGuru;
 using TendersData.Infrastructure.TendersGuru.Mappers;
 using TendersData.Infrastructure.TendersGuru.Repositories;
+using TendersData.Infrastructure.TendersGuru.Services;
 
 
 namespace TendersData.Infrastructure;
@@ -17,6 +19,10 @@ public static class DependencyInjection
     {
         services.AddMemoryCache();
         services.AddScoped<ITenderMapper, TenderMapper>();
+        
+        services.Configure<TendersGuruOptions>(
+            configuration.GetSection(TendersGuruOptions.SectionName));
+        
         services.AddTendersClient(configuration);
 
         return services;
@@ -24,16 +30,21 @@ public static class DependencyInjection
 
     public static IServiceCollection AddTendersClient(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddHttpClient<ITendersDataRepository, TendersDataRepository>(client =>
+        services.AddScoped<ITendersDataRepository, TendersDataRepository>();
+
+        services.AddHttpClient(nameof(TendersDataRepository), client =>
         {
-            var baseUrl = configuration["TendersGuru:BaseUrl"];
+            var options = configuration.GetSection(TendersGuruOptions.SectionName).Get<TendersGuruOptions>() 
+                ?? new TendersGuruOptions();
 
             client.DefaultRequestHeaders.Add("Referer", "https://tenders.guru/api/pl");
-            client.BaseAddress = new Uri(baseUrl ?? "https://tenders.guru/api/pl/");
+            client.BaseAddress = new Uri(options.BaseUrl);
             client.DefaultRequestHeaders.Add("Accept", "application/json");
             client.Timeout = TimeSpan.FromSeconds(360);
         })
         .AddPolicyHandler((serviceProvider, request) => GetRetryPolicy(serviceProvider));
+
+        services.AddHostedService<TendersCacheBackgroundService>();
 
         return services;
     }
