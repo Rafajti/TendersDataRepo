@@ -62,14 +62,16 @@ docker compose up --build
 This will:
 - Build the Docker image from the `Dockerfile` in `src/TendersData.Api/`
 - Start the container with the API service
-- Expose ports 8080 (HTTP) and 8081 (HTTPS)
+- Expose **HTTP** on port **8080** (no HTTPS in container; no dev certificate)
+
+The API is available at `http://localhost:8080` (e.g. `GET http://localhost:8080/api/tenders`). OpenAPI is at `http://localhost:8080/openapi/v1.json` when running in Docker (Development).
 
 ### Docker Compose Configuration
 
 The `docker-compose.yml` file includes:
 - Service: `tendersdata-api`
-- Port mappings: `8080:8080` and `8081:8081`
-- Environment variables for TendersGuru configuration
+- Port mapping: `8080:8080` (HTTP only)
+- Environment variables: `ASPNETCORE_URLS=http://+:8080`, `ASPNETCORE_ENVIRONMENT=Development`, `TendersGuru__BaseUrl`, `TendersGuru__PagesCount`
 
 You can override environment variables in `docker-compose.yml` or by using environment-specific compose files.
 
@@ -83,16 +85,20 @@ The `Dockerfile` is located at `src/TendersData.Api/Dockerfile` and uses a multi
 
 ## Testing
 
-To run all tests:
+Run all tests from the repository root:
 
 ```bash
 dotnet test
 ```
 
-This will execute tests from:
-- `TendersData.Api.Tests` - API controller and middleware tests
-- `TendersData.Application.Tests` - Application layer tests
-- `TendersData.Infrastructure.Tests` - Infrastructure layer tests
+### Test Projects
+
+| Project | Description |
+|--------|-------------|
+| `TendersData.Api.Tests` | Unit tests for controllers and middlewares (e.g. `TendersController`, `GlobalExceptionHandler`) |
+| `TendersData.Application.Tests` | Unit tests for handlers, validators (e.g. `GetTenderById`, `GetFilteredTenders`), repository usage |
+| `TendersData.Infrastructure.Tests` | Unit tests for mappers, repository, background service (`TenderMapper`, `TendersDataRepository`, `TendersCacheBackgroundService`) |
+| `TendersData.IntegrationTests` | **Integration tests** against the HTTP API using `WebApplicationFactory` |
 
 ## API Documentation
 
